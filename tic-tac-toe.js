@@ -15,7 +15,7 @@ class Direction {
   }
 
   moveInDirection = function(x, y, direction) {
-    return {x: x + this.directions[direction], y: y + this.directions[direction]}
+    return {x: x + this.directions[direction].x, y: y + this.directions[direction].y}
   }
 
 }
@@ -38,27 +38,30 @@ class Board {
 
   makeMove = function(symbol, x, y) {
     // check if x or y are out of bounds and throw error if they are
-    this.board[x-1][y-1] = symbol;
+    // check if its already taken
+    this.board[y-1][x-1] = symbol;
   }
 
   checkForWinner = function(symbol) {
-    this.referencePositions.forEach((coordinate) => {
-      // check for each reference position direction
-      coordinate.directions.forEach((direction) => {
-        this.checkDirection(coordinate.x, coordinate.y, direction, symbol)
-      });
-      // if a winning row is found then break and return otherwise continue until end
-    });
+    let hasFoundWin = false;
+    for (let i = 0; i < this.referencePositions.length; i++){
+      let coordinate = this.referencePositions[i];
+      hasFoundWin = coordinate.directions.some((direction) => this.checkDirection(coordinate.x, coordinate.y, direction, symbol));
+      if (hasFoundWin){
+        break;
+      }
+    }
+    return hasFoundWin;
   }
 
   checkDirection = function(x, y, direction, symbol) {
-    if (x < this.rowMax && y < this.colMax && this.board[x][y] === symbol) {
-      if (x === this.rowMax && y === this.colMax) {
+    if (x < this.rowMax && y < this.colMax && this.board[y][x] === symbol) {
+      const directionModel = new Direction();
+      const newCoords = directionModel.moveInDirection(x, y, direction);
+      if (newCoords.x === this.rowMax || newCoords.y === this.colMax) {
         return true;
       } else {
-        const direction = new Direction();
-        const newCoords = direction.moveInDirection(x, y, direction);
-        return  true && checkDirection(newCoords.x, newCoords.y, direction, symbol);
+        return  true && this.checkDirection(newCoords.x, newCoords.y, direction, symbol);
       }
     } else {
       return false;
@@ -78,7 +81,7 @@ class Player {
 
   playTurn = function(board) {
     return new Promise((resolve, reject) => {
-      this.rl.question("What x,y position would you like to play?", (coordString) => {
+      this.rl.question(`What x,y position would '${this.symbol}' like to play?`, (coordString) => {
         let coordinates = coordString.split(',').map((strNumber) => parseInt(strNumber));
         board.makeMove(this.symbol, coordinates[0], coordinates[11,1]);
         this.printBoard(board);
@@ -104,14 +107,14 @@ class Game {
     this.player1 = new Player('X');
     this.player2 = new Player('O');
     this.playerTurn = this.player1;
-    this.hasWinner = null;
+    this.hasWinner = false;
   }
 
   gameLoop = async function() {
-    while(this.hasWinner === null) {
+    while(!this.hasWinner) {
       try {
         await this.playerTurn.playTurn(this.board);
-        this.hasWinner = this.board.checkForWinner();
+        this.hasWinner = this.board.checkForWinner(this.playerTurn.symbol);
         if (!this.hasWinner) {
           this.playerTurn = this.playerTurn === this.player1 ? this.player2 : this.player1;
         }
