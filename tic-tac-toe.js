@@ -37,8 +37,11 @@ class Board {
   }
 
   makeMove = function(symbol, x, y) {
-    // check if x or y are out of bounds and throw error if they are
-    // check if its already taken
+    if (x < 1 || x > 3 || y < 1 || y > 3){
+      throw new Error('Position value out of bounds!');
+    } else if (this.board[y-1][x-1] !== 'U') {
+      throw new Error('Position already taken');
+    }
     this.board[y-1][x-1] = symbol;
   }
 
@@ -52,6 +55,10 @@ class Board {
       }
     }
     return hasFoundWin;
+  }
+
+  checkForTie = function() {
+    return this.board.every((col) => col.every((cell) => cell === 'X' || cell === 'O'));
   }
 
   checkDirection = function(x, y, direction, symbol) {
@@ -82,10 +89,28 @@ class Player {
   playTurn = function(board) {
     return new Promise((resolve, reject) => {
       this.rl.question(`What x,y position would '${this.symbol}' like to play?`, (coordString) => {
-        let coordinates = coordString.split(',').map((strNumber) => parseInt(strNumber));
-        board.makeMove(this.symbol, coordinates[0], coordinates[11,1]);
-        this.printBoard(board);
-        resolve();
+        try {
+          let coordinates = coordString.split(',').map((strNumber) => parseInt(strNumber));
+          board.makeMove(this.symbol, coordinates[0], coordinates[11,1]);
+          this.printBoard(board);
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+  }
+
+  playAgain = function() {
+    return new Promise((resolve, reject) => {
+      this.re.question('Would you like to play again? (Y/N)', (answer) => {
+        if (answer.toLowerCase() === 'y') {
+          resolve(true);
+        } else if (answer.toLowerCase() === 'n') {
+          resolve(false)
+        } else {
+          reject(new Error('Invalid answer!'))
+        }
       });
     });
   }
@@ -108,22 +133,29 @@ class Game {
     this.player2 = new Player('O');
     this.playerTurn = this.player1;
     this.hasWinner = false;
+    this.hasTie = false;
   }
 
   gameLoop = async function() {
-    while(!this.hasWinner) {
+    this.playerTurn.printBoard(this.board);
+    while(!this.hasWinner && !this.hasTie) {
       try {
         await this.playerTurn.playTurn(this.board);
         this.hasWinner = this.board.checkForWinner(this.playerTurn.symbol);
+        this.hasTie = this.board.checkForTie();
         if (!this.hasWinner) {
           this.playerTurn = this.playerTurn === this.player1 ? this.player2 : this.player1;
         }
       } catch (error) {
-        console.log(error);
+        console.log(`ERROR: ${error.message}`);
         console.log(this.playerTurn.symbol + " please go again!");
       }
     }
-    console.log(this.playerTurn.symbol + " has won!");
+    if (this.hasWinner) {
+      console.log(this.playerTurn.symbol + " has won!");      
+    } else {
+      console.log('Tie!');
+    }
   }
 }
 
